@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>五子棋小遊戲</title>
+	<link rel="icon" href="Images/black.png">
+	<style>
+		.chekerboard{	/*棋盤背景 680*640 */
+			position: relative;
+			margin: 20px auto;			
+			height: 680px;
+			width: 640px;
+			border: 2px solid #D8D8D8;
+			border-radius: 2px;
+			background-size: cover;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+		.piece{		/*棋格按鈕 30*30 */
+			position: absolute;
+			height: 30px;
+			width: 30px;
+		}
+		.restartBTN{	/*重新開始按鈕 50*100 */
+			position: absolute;			
+			height: 50px;
+			width: 100px;
+			top: 15px;
+			left: 30px;
+		}
+		.quitBTN{	/*投降按鈕*/
+			position: absolute;
+			width: 100px;
+			height: 50px;
+			top: 15px;
+			left: 510px;
+		}
+		.playLAB{	/*行棋方顯示區域*/
+			position: absolute;
+			height: 60px;
+			width: 300px;
+			top: 10px;
+			left: 170px;
+			/* 攻守互換的轉場效果 */
+			transition-duration: .3s;
+			transition-timing-function: ease-out;
+		}
+		.winLAB{	/*勝利顯示區域*/
+			position: absolute;
+			height: 60px;
+			width: 150px;
+			top: 10px;
+			left: 480px;
+			animation-name: winLAB;
+			animation-duration: .5s;
+			animation-timing-function: ease-out;
+			animation-iteration-count:infinite;
+		}
+		/*勝利顯示跳動的效果*/
+		@keyframes winLAB{
+			form{
+				
+			}
+			to{
+				transform: scale(1.1);
+			}
+		}
+	</style>
+</head>
+<body>
+	<audio id="sound_tink" src="sounds/tink.wav"></audio>	<!-- 下棋的聲音 -->
+	<audio id="sound_win" src="sounds/win.mp3"></audio>		<!-- 勝利的音樂 -->
+
+	<div class="chekerboard" id="chekerboard">	<!-- 棋盤 -->
+		<div class="winLAB" id="winLAB"></div>	<!-- 勝利顯示區域 -->
+		<div class="restartBTN" id="restartBTN"></div>	<!-- 重新遊戲的按鈕 -->
+		<div class="playLAB" id="playLAB"></div>	<!-- 下棋方的顯示區域 -->
+		<div class="quitBTN" id="quitBTN"></div><!-- 投降的按鈕 -->
+	</div>
+
+	<script>
+		//	遊戲進行狀態
+		Game = {
+			round: 0, //	回合判定雙數為黑方攻,單數白方攻
+			win_count: 1,	//	連棋計數，5顆獲勝
+			playing: true	//	遊戲進行中
+		}
+		//	function-設置圖片方程式
+		function setImg(id, src){
+			var getID = document.getElementById(id);
+        	getID.style.backgroundImage = "url("+src+")";
+		}
+		//	圖片路徑
+		Img = {
+			bg: "Images/chekerboard.png", 	//	背景棋盤
+			black: "Images/black.png",		//	黑棋子
+			white: "Images/white.png",		//	白棋子
+			bplay: "Images/bplay.png",		//	黑棋回合
+			wplay: "Images/wplay.png",		//	白棋回合
+			win: "Images/win.png",			//	勝利
+			quit: "Images/quit.png",		//	投降
+			restart: "Images/restart.png"	//	重新
+		};
+		//	基本版面配置
+		setImg("chekerboard",Img.bg);
+		setImg("restartBTN",Img.restart);
+		setImg("playLAB",Img.bplay);
+		setImg("quitBTN",Img.quit);
+		//	玩家
+		Player = function (value, placeIMG, labIMG){
+			this.value = value;
+			this.placeIMG = placeIMG;
+			this.labIMG = labIMG;
+		}
+		p = new Array();
+		p.push( new Player("black",Img.black,Img.bplay) );	//	新增一個玩家p0 代表黑棋方
+		p.push( new Player("white",Img.white,Img.wplay) );	//	新增一個玩家p1 代表白棋方
+		//	棋格建立
+		var x = 25,y = 65;	//	最左上棋格座標( 25, 65 )
+		for(var i=1; i<=15; i++){
+			for(var j=1; j<=15; j++){
+				var piece = document.createElement("div");	// 建立div元素(棋格)
+				piece.id = "piece["+ j +"]["+ i +"]";
+				piece.className = "piece";
+				piece.style.left = x + "px";
+				piece.style.top = y + "px";
+				piece.value = 2;	//	紀錄格子的狀態0為黑棋，1為白棋，2為未下棋
+				piece.x = j;	//	棋格座標x
+				piece.y = i;	//	棋格座標y
+				x += 40;
+				var getDIV = document.getElementById("chekerboard");	// 讀取Id為chekerboard的物件
+				getDIV.appendChild(piece);	//	將棋格建立在chekerboard裡
+
+				// function-下棋方程式
+				var getID = document.getElementById(piece.id);
+                getID.addEventListener("click",function place(){	//	將棋格加入點擊監聽
+				     if(Game.playing && this.value == 2){	//	如果遊戲進行中，而且棋格沒有棋
+				     	var getsoundId = document.getElementById("sound_tink");	//取得下棋的聲音
+						getsoundId.play();	//播放
+                		move = Game.round % 2;	//	回合 奇偶數判斷下棋方
+                		next = (Game.round+1) % 2	//	給顯示棋方用的回合數
+						setImg(this.id,p[move].placeIMG);	//	點選的棋格給上相對的顏色
+						this.value = move;	//	用value標記棋格現在的棋子
+						for(var k = 1; k <= 8; k++){//	下棋後判斷是否勝利，朝8個方向判斷8次
+							win_judge(this.x, this.y, this.value, k);	//	執行判斷勝利function
+						}
+						if(Game.playing) setImg("playLAB",p[next].labIMG);	//	改變上方顯示的下棋方
+				
+						Game.round++;	//回合數+1
+                	}
+	            });
+			}
+			x = 25; 
+			y += 40;
+		}
+		//	function-判定勝利方程式
+		function win_judge(x, y, value, rule){
+			var l = 0, m = 0;
+	        switch(rule){
+	        	case 1:	l=-1;	m=-1;	break;	//	左上
+	            case 2: l=1;    m=1;    break; 	//	右下
+	            case 3: l=0;    m=-1;	break; 	//	上
+	            case 4:	l=0;    m=1;	break; 	//	下
+	            case 5: l=1;    m=-1;	break; 	//	右上
+	            case 6: l=-1;   m=1;    break; 	//	左下
+	            case 7: l=1;    m=0;	break; 	//  右
+	            case 8: l=-1;   m=0;	break; 	//	左
+	        }
+	        Game.win_count = 1;
+	        while(Game.playing){
+	            x += l;
+		        y += m;
+		        try{ 
+					var getDIV = document.getElementById("piece["+ x +"]["+ y +"]");	// 讀取棋格的Id
+					rule_value = getDIV.value;
+				}catch(e){ 
+					rule_value = 2;	// 超出邊界會出現錯誤，給出界的部分值為2，沒有下棋的意思
+				}
+	            if(rule_value == value){
+	            	Game.win_count++;	// 如果掃描方向的棋子同色，連棋數計數	
+	            	if(Game.win_count == 5)  win();	// 如果連5顆就贏了
+	            	else continue;	// 如果沒有勝利就往下一顆棋檢查
+	            }else break;	// 如果棋子不同色就往下一個方向檢查
+	        }
+		}
+		//	function-勝利方程式
+		function win(){
+			quitBTN.style.display = "none";	// 勝利後投降按鈕消失
+			setImg("winLAB",Img.win);	// 顯示勝利
+			var getsoundId = document.getElementById("sound_win");	// 取得勝利棋的音樂
+			getsoundId.play();	// 播放
+			Game.playing = false;	// 遊戲結束，無法下棋
+		}
+		//	 將重新開始按鈕加入點擊監聽
+        restartBTN.addEventListener("click",function restart(){
+        	if( confirm("確定要重新開始嗎?") ){
+        		location.href = "index.html";
+        	}
+        });
+        //	 將投降加入點擊監聽
+        quitBTN.addEventListener("click",function quit(){
+        	if( Game.round>0 )
+        	if( confirm("確定要投降嗎?") ){
+	        	setImg("playLAB",p[move].labIMG);
+	        	win();
+        	}
+        });	
+	</script>
+</body>
+</html>
